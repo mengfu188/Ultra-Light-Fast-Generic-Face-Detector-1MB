@@ -1,10 +1,11 @@
 import torch.nn as nn
 import torch.nn.functional as F
+import torch
 
 
 class Mb_Tiny(nn.Module):
 
-    def __init__(self, num_classes=2):
+    def __init__(self, num_classes=2, input_size = (320, 240)):
         super(Mb_Tiny, self).__init__()
         self.base_channel = 8 * 2
 
@@ -41,11 +42,44 @@ class Mb_Tiny(nn.Module):
             conv_dw(self.base_channel * 8, self.base_channel * 16, 2),  # 10*8
             conv_dw(self.base_channel * 16, self.base_channel * 16, 1)
         )
-        self.fc = nn.Linear(1024, num_classes)
+
+        # if input_size == (320, 240):
+        #     self.fc_size = 256
+        # elif input_size == (160, 120):
+        #     self.fc_size = 128
+        # elif input_size == (80, 60):
+        #     self.fc_size = 64
+        # print(self.fc_size)
+        # self.fc = nn.Linear(self.fc_size, num_classes)
+        self.fc = nn.Linear(256, num_classes)
 
     def forward(self, x):
         x = self.model(x)
-        x = F.avg_pool2d(x, 7)
-        x = x.view(-1, 1024)
+        print(x.shape)
+        # x = F.avg_pool2d(x, x.shape[-1])
+        x = F.adaptive_avg_pool2d(x, 1)
+        # print(x.shape)
+        # print(x.)
+        # print(self.flaten(x))
+        # x = x.view(-1, self.fc_size)
+        x = x.view(-1, 256)
         x = self.fc(x)
         return x
+
+    def flaten(self, x):
+        r = 1
+        for s in x.shape[1:]:
+            r *= s
+        return r
+
+if __name__ == '__main__':
+    from ptflops import get_model_complexity_info
+    input_sizes = [(640, 480), (320, 240), (160, 120), (80, 60)]
+    for input_size in input_sizes:
+        data = torch.randn((1, 3) + input_size )
+        model = Mb_Tiny(2, input_size)
+        r = model(data)
+        print(r.shape)
+        flops, params = get_model_complexity_info(model, (3, ) + input_size, print_per_layer_stat=True, as_strings=True)
+        print(flops, params)
+
