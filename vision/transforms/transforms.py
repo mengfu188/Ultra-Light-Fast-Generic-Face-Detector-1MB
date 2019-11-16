@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from numpy import random
 from torchvision import transforms
+from PIL import Image
 
 
 def intersect(box_a, box_b):
@@ -134,13 +135,92 @@ class ToPercentCoords(object):
         return image, boxes, labels
 
 
+class Pad:
+
+    def __init__(self, size):
+        self.size = size  # target width, height
+        self.scale = size[1] / size[0]  # height / width
+
+    def __call__(self, image, boxes=None, labels=None):
+        # image is numpy
+        height, width, channel = image.shape
+        raw_scale = height / width
+        padding = (0, 0)  # left/right, top/bottom
+        if raw_scale > self.scale:
+            # 要扩增宽度
+            target_width = 1 / self.scale * height
+            width_pad = int((target_width - width) / 2)
+            padding = (width_pad, 0)
+        elif raw_scale < self.scale:
+            # 要扩增高度
+            target_height = self.scale * width
+            height_pad = int((target_height - height) / 2)
+            padding = (0, height_pad)
+        else:
+            # 不pad
+            return image, boxes, labels
+
+        # import copy
+        # img = copy.deepcopy(image)
+        # if boxes is not None:
+        #     for box in boxes:
+        #         cv2.rectangle(img, (box[0],box[1]), (box[2],box[3]), (0,255,0),1)
+        # cv2.imshow('1', img)
+        # cv2.waitKey()
+
+        # image 添加 pad
+        # print(image.shape, image.shape[0] / image.shape[1])
+        # pad = transforms.Pad(padding)
+        # image = Image.fromarray(image)
+        # image = pad(image)
+        # image = np.asarray(image)
+
+        # print(image.shape, image.shape[0] / image.shape[1])
+
+        left_pad = padding[0]
+        top_pad = padding[1]
+        image = np.pad(image, ((top_pad, top_pad),(left_pad, left_pad),(0,0)), 'constant', constant_values=0)
+
+        # print(image.shape, image.shape[0] / image.shape[1])
+
+        if boxes is not None:
+            # boxes添加pad,假设boxes为[[x1,y1,x2,y2]]
+            boxes[:, 0] += padding[0]
+            boxes[:, 2] += padding[0]
+            boxes[:, 1] += padding[1]
+            boxes[:, 3] += padding[1]
+
+        # import copy
+        # img = copy.deepcopy(image)
+        # if boxes is not None:
+        #     for box in boxes:
+        #         cv2.rectangle(img, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 1)
+        # cv2.imshow('2', img)
+        # cv2.waitKey()
+
+        return image, boxes, labels
+
+
 class Resize(object):
     def __init__(self, size=(300, 300)):
         self.size = size
 
     def __call__(self, image, boxes=None, labels=None):
+        # print(image.shape)
+        # cv2.imshow('', image)
+        # cv2.waitKey()
+
         image = cv2.resize(image, (self.size[0],
                                    self.size[1]))
+        # print(image.shape)
+        # cv2.imshow('', image)
+        # cv2.waitKey()
+
+        # import torchvision
+        # torchvision.transforms.Pad()
+        # np.pad()
+
+
         return image, boxes, labels
 
 
