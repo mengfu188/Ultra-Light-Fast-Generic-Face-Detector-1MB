@@ -22,7 +22,7 @@ parser.add_argument('--path', default="imgs", type=str,
                     help='imgs dir')
 parser.add_argument('--test_device', default="cuda:0", type=str,
                     help='cuda:0 or cpu')
-parser.add_argument('--video_path', default="/home/linzai/Videos/video/16_1.MP4", type=str,
+parser.add_argument('--video_path', default=0, type=str,
                     help='path of video')
 args = parser.parse_args()
 

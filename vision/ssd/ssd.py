@@ -92,6 +92,7 @@ class SSD(nn.Module):
 
         if self.is_test:
             confidences = F.softmax(confidences, dim=2)
+            # 根据预测的偏移量调整锚框位置从而得到预测边界框
             boxes = box_utils.convert_locations_to_boxes(
                 locations, self.priors, self.config.center_variance, self.config.size_variance
             )
@@ -101,10 +102,11 @@ class SSD(nn.Module):
             return confidences, locations
 
     def compute_header(self, i, x):
+        # 预测出来的类别
         confidence = self.classification_headers[i](x)
         confidence = confidence.permute(0, 2, 3, 1).contiguous()
         confidence = confidence.view(confidence.size(0), -1, self.num_classes)
-
+        # 预测出来的偏移量
         location = self.regression_headers[i](x)
         location = location.permute(0, 2, 3, 1).contiguous()
         location = location.view(location.size(0), -1, 4)
