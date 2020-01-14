@@ -83,3 +83,11 @@ if __name__ == '__main__':
         flops, params = get_model_complexity_info(model, (3, ) + input_size, print_per_layer_stat=True, as_strings=True)
         print(flops, params)
 
+    import torchvision
+    from torch import onnx
+    torch.onnx.export(model, data, 'mb_tyny.onnx',verbose=True)
+    import time
+
+
+
+

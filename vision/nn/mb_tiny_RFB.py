@@ -108,11 +108,32 @@ class Mb_Tiny_RFB(nn.Module):
             conv_dw(self.base_channel * 8, self.base_channel * 16, 2),  # 10*8
             conv_dw(self.base_channel * 16, self.base_channel * 16, 1)
         )
-        self.fc = nn.Linear(1024, num_classes)
+        self.fc = nn.Linear(256, num_classes)
 
     def forward(self, x):
         x = self.model(x)
-        x = F.avg_pool2d(x, 7)
-        x = x.view(-1, 1024)
+        # x = F.avg_pool2d(x, 7)
+        print(x.shape)
+        x = F.adaptive_avg_pool2d(x, 1)
+        x = x.view(-1, 256)
         x = self.fc(x)
         return x
+
+
+if __name__ == '__main__':
+    from ptflops import get_model_complexity_info
+
+    input_sizes = [(640, 480), (320, 240), (160, 120), (80, 60), (224, 224), (112, 112)]
+    for input_size in input_sizes:
+        data = torch.randn((1, 3) + input_size)
+        model = Mb_Tiny_RFB(2)
+        r = model(data)
+        print(r.shape)
+        # flops, params = get_model_complexity_info(model, (3,) + input_size, print_per_layer_stat=True, as_strings=True)
+        # print(flops, params)
+
+    import torchvision
+    from torch import onnx
+
+    # torch.onnx.export(model, data, 'mb_tyny_rfb.onnx', verbose=True)
+    # import time
