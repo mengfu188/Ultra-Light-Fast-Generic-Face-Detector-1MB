@@ -206,15 +206,24 @@ class Resize(object):
         self.size = size
 
     def __call__(self, image, boxes=None, labels=None):
-        # print(image.shape)
-        # cv2.imshow('', image)
+        # import copy
+        # img = copy.deepcopy(image)
+        # if boxes is not None:
+        #     for box in boxes:
+        #         cv2.rectangle(img, (box[0],box[1]), (box[2],box[3]), (0,255,0),1)
+        # cv2.imshow('3', img)
         # cv2.waitKey()
 
         image = cv2.resize(image, (self.size[0],
                                    self.size[1]))
-        # print(image.shape)
-        # cv2.imshow('', image)
+        # import copy
+        # img = copy.deepcopy(image)
+        # if boxes is not None:
+        #     for box in boxes:
+        #         cv2.rectangle(img, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 1)
+        # cv2.imshow('4', img)
         # cv2.waitKey()
+
 
         # import torchvision
         # torchvision.transforms.Pad()
