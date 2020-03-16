@@ -12,7 +12,10 @@ from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 from torch.utils.data import DataLoader, ConcatDataset
 
+from vision.datasets.helmet_dataset import HelmetDataset
 from vision.datasets.voc_dataset import VOCDataset
+from vision.datasets.oid_dataset import OIDDataset
+from vision.datasets.brain_dataset import BrainDataset
 from vision.nn.multibox_loss import MultiboxLoss
 from vision.ssd.config.fd_config import define_img_size
 from vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
@@ -20,8 +23,10 @@ from vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
 parser = argparse.ArgumentParser(
     description='train With Pytorch')
 
-parser.add_argument("--dataset_type", default="voc", type=str,
+parser.add_argument("--dataset_type", default="voc", type=str, nargs='+',
                     help='Specify dataset type. Currently support voc.')
+parser.add_argument('--oid_filter_size', default=10, type=int)
+parser.add_argument('--brain_filter_size', default=10, type=int)
 
 parser.add_argument('--datasets', nargs='+', help='Dataset directory path')
 parser.add_argument('--validation_dataset', help='Dataset directory path')
@@ -61,7 +66,7 @@ parser.add_argument('--scheduler', default="multi-step", type=str,
                     help="Scheduler for SGD. It can one of multi-step and cosine")
 
 # Params for Multi-step Scheduler
-parser.add_argument('--milestones', default="80,100", type=str,
+parser.add_argument('--milestones', default=[80, 100], type=int, nargs='+',
                     help="milestones for MultiStepLR")
 
 # Params for Cosine Annealing
@@ -81,6 +86,7 @@ parser.add_argument('--debug_steps', default=100, type=int,
                     help='Set the debug log output frequency.')
 parser.add_argument('--use_cuda', default=True, type=str2bool,
                     help='Use CUDA to train model')
+parser.add_argument('--train_dataset_percentage', default=1, type=float)
 
 parser.add_argument('--checkpoint_folder', default='models/',
                     help='Directory for saving checkpoint models')
@@ -102,7 +108,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO,
 args = parser.parse_args()
 
 input_img_size = args.input_size  # define input size ,default optional(128/160/320/480/640/1280)
-logging.info("inpu size :{}".format(input_img_size))
+logging.info("input size :{}".format(input_img_size))
 define_img_size(input_img_size)  # must put define_img_size() before 'import fd_config'
 
 from vision.ssd.config import fd_config
@@ -216,14 +222,30 @@ if __name__ == '__main__':
         os.makedirs(args.checkpoint_folder)
     logging.info("Prepare training datasets.")
     datasets = []
-    for dataset_path in args.datasets:
-        if args.dataset_type == 'voc':
+    for i, dataset_path in enumerate(args.datasets):
+        dataset_type = args.dataset_type[i]
+        if dataset_type == 'voc':
             dataset = VOCDataset(dataset_path, transform=train_transform,
                                  target_transform=target_transform)
             label_file = os.path.join(args.checkpoint_folder, "voc-model-labels.txt")
             store_labels(label_file, dataset.class_names)
             num_classes = len(dataset.class_names)
-
+        elif dataset_type == 'oid':
+            dataset = OIDDataset(dataset_path, transform=train_transform,
+                                 target_transform=target_transform, type='train',
+                                 persentage=args.train_dataset_percentage,
+                                 filter_size=args.oid_filter_size)  # TODO
+            label_file = os.path.join(args.checkpoint_folder, "oid-model-labels.txt")
+            store_labels(label_file, dataset.class_names)
+            num_classes = len(dataset.class_names)
+        elif dataset_type == 'brain':
+            dataset = BrainDataset(dataset_path, transform=train_transform,
+                                   target_transform=target_transform,
+                                   persentage=args.train_dataset_percentage,
+                                   filter_size=args.brain_filter_size)
+            label_file = os.path.join(args.checkpoint_folder, "oid-model-labels.txt")
+            store_labels(label_file, dataset.class_names)
+            num_classes = len(dataset.class_names)
         else:
             raise ValueError(f"Dataset tpye {args.dataset_type} is not supported.")
         datasets.append(dataset)
@@ -234,9 +256,17 @@ if __name__ == '__main__':
                               num_workers=args.num_workers,
                               shuffle=True)
     logging.info("Prepare Validation datasets.")
-    if args.dataset_type == "voc":
+    if args.dataset_type[0] == "voc":
         val_dataset = VOCDataset(args.validation_dataset, transform=test_transform,
                                  target_transform=target_transform, is_test=True)
+    elif args.dataset_type[0] == 'oid':
+        val_dataset = OIDDataset(args.validation_dataset, transform=test_transform,
+                                 target_transform=target_transform, type='validation',)  # TODO
+    elif args.dataset_type[0] == 'brain':
+        val_dataset = BrainDataset(args.validation_dataset, transform=test_transform,
+                                   target_transform=target_transform, filter_size=args.brain_filter_size)
+    else:
+        raise ValueError(f"Dataset tpye {args.dataset_type} is not supported.")
     logging.info("validation dataset size: {}".format(len(val_dataset)))
 
     val_loader = DataLoader(val_dataset, args.batch_size,
@@ -246,7 +276,7 @@ if __name__ == '__main__':
     net = create_net(num_classes)
 
     # add multigpu_train
-    if torch.cuda.device_count() >= 1:
+    if torch.cuda.device_count() > 1:
         cuda_index_list = [int(v.strip()) for v in args.cuda_index.split(",")]
         net = nn.DataParallel(net, device_ids=cuda_index_list)
         logging.info("use gpu :{}".format(cuda_index_list))
@@ -279,14 +309,14 @@ if __name__ == '__main__':
         logging.info("Freeze all the layers except prediction heads.")
     else:
         params = [
-            {'params': net.module.base_net.parameters(), 'lr': base_net_lr},
+            {'params': net.base_net.parameters(), 'lr': base_net_lr},
             {'params': itertools.chain(
-                net.module.source_layer_add_ons.parameters(),
-                net.module.extras.parameters()
+                net.source_layer_add_ons.parameters(),
+                net.extras.parameters()
             ), 'lr': extra_layers_lr},
             {'params': itertools.chain(
-                net.module.regression_headers.parameters(),
-                net.module.classification_headers.parameters()
+                net.regression_headers.parameters(),
+                net.classification_headers.parameters()
             )}
         ]
 
@@ -321,8 +351,8 @@ if __name__ == '__main__':
     if args.optimizer_type != "Adam":
         if args.scheduler == 'multi-step':
             logging.info("Uses MultiStepLR scheduler.")
-            milestones = [int(v.strip()) for v in args.milestones.split(",")]
-            scheduler = MultiStepLR(optimizer, milestones=milestones,
+            # milestones = [int(v.strip()) for v in args.milestones.split(",")]
+            scheduler = MultiStepLR(optimizer, milestones=args.milestones,
                                     gamma=0.1, last_epoch=last_epoch)
         elif args.scheduler == 'cosine':
             logging.info("Uses CosineAnnealingLR scheduler.")
@@ -356,5 +386,5 @@ if __name__ == '__main__':
                 f"Validation Classification Loss: {val_classification_loss:.4f}"
             )
             model_path = os.path.join(args.checkpoint_folder, f"{args.net}-Epoch-{epoch}-Loss-{val_loss}.pth")
-            net.module.save(model_path)
+            net.save(model_path)
             logging.info(f"Saved model {model_path}")

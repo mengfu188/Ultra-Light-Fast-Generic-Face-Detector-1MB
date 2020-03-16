@@ -30,7 +30,7 @@ test_device = "cuda:0"
 candidate_size = 800
 threshold = 0.1
 
-val_image_root = "/pic/linzai/1080Ti/home_linzai/PycharmProjects/insightface/RetinaFace/data/retinaface/val"  # path to widerface valuation image root
+val_image_root = "/home/cmf/w_public/Ultra-Light-Fast-Generic-Face-Detector-1MB/data/wider_face/WIDER_val"  # path to widerface valuation image root
 val_result_txt_save_root = "./widerface_evaluation/"  # result directory
 
 if net_type == 'slim':
@@ -40,6 +40,7 @@ if net_type == 'slim':
     predictor = create_mb_tiny_fd_predictor(net, candidate_size=candidate_size, device=test_device)
 elif net_type == 'RFB':
     model_path = "../models/pretrained/version-RFB-320.pth"
+    model_path = '../models/train-dataset-oid-version-RFB-320-pad-without-resume/RFB-Epoch-199-Loss-2.9649808023967883.pth'
     # model_path = "../models/pretrained/version-RFB-640.pth"
     net = create_Mb_Tiny_RFB_fd(len(class_names), is_test=True, device=test_device)
     predictor = create_Mb_Tiny_RFB_fd_predictor(net, candidate_size=candidate_size, device=test_device)

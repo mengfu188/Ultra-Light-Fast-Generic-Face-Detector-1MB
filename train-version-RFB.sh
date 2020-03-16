@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-model_root_path="./models/train-version-RFB"
+model_root_path="./models/train-version-RFB-320-pad"
 log_dir="$model_root_path/logs"
 log="$log_dir/log"
 mkdir -p "$log_dir"
@@ -7,6 +7,8 @@ mkdir -p "$log_dir"
 python3 -u train.py \
   --datasets \
   ./data/wider_face_add_lm_10_10 \
+  --dataset_type \
+  voc \
   --validation_dataset \
   ./data/wider_face_add_lm_10_10 \
   --net \

@@ -43,6 +43,7 @@ if args.net_type == 'slim':
 elif args.net_type == 'RFB':
     model_path = "models/pretrained/version-RFB-320.pth"
     # model_path = "models/pretrained/version-RFB-640.pth"
+    model_path = 'models/train-version-RFB/RFB-Epoch-195-Loss-2.8488369597329033.pth'
     net = create_Mb_Tiny_RFB_fd(len(class_names), is_test=True, device=test_device)
     predictor = create_Mb_Tiny_RFB_fd_predictor(net, candidate_size=args.candidate_size, device=test_device)
 else:
@@ -57,7 +58,13 @@ sum = 0
 for file_path in listdir:
     img_path = os.path.join(args.path, file_path)
     orig_image = cv2.imread(img_path)
+
+    from vision.transforms.transforms import Pad
+    from vision.ssd.config.fd_config import image_size
+    orig_image, _, _ = Pad(image_size)(orig_image)
+
     image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2RGB)
+
     boxes, labels, probs = predictor.predict(image, args.candidate_size / 2, args.threshold)
     sum += boxes.size(0)
     for i in range(boxes.size(0)):

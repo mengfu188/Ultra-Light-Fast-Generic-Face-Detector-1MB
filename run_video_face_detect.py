@@ -4,6 +4,7 @@ This code uses the pytorch model to detect faces from live video or camera.
 import argparse
 import sys
 import cv2
+import numpy as np
 
 from vision.ssd.config.fd_config import define_img_size
 
@@ -24,6 +25,7 @@ parser.add_argument('--test_device', default="cuda:0", type=str,
                     help='cuda:0 or cpu')
 parser.add_argument('--video_path', default="/home/cmf/tayg_duoren_part1.mp4", type=str,
                     help='path of video')
+parser.add_argument('--model_path', default='models/pretrained/version-RFB-320.pth')
 args = parser.parse_args()
 
 input_img_size = args.input_size
@@ -63,12 +65,13 @@ elif net_type == 'RFB':
     model_path = 'models/train-dataset-oid-version-RFB-640-pad/RFB-Epoch-63-Loss-2.7645139572394157.pth'
     model_path = 'models/train-dataset-oid-version-RFB-320-pad-without-resume/RFB-Epoch-199-Loss-2.9649808023967883.pth'
     model_path = 'models/train-helmet-version-RFB-320/RFB-Epoch-50-Loss-2.43834184328715.pth'
+    model_path = 'models/train-helmet-version-RFB-640/RFB-Epoch-199-Loss-2.171001459757487.pth'
     net = create_Mb_Tiny_RFB_fd(len(class_names), is_test=True, device=test_device)
     predictor = create_Mb_Tiny_RFB_fd_predictor(net, candidate_size=candidate_size, device=test_device)
 else:
     print("The net type is wrong!")
     sys.exit(1)
-net.load(model_path)
+net.load(args.model_path)
 
 timer = Timer()
 sum = 0
@@ -77,7 +80,8 @@ from vision.ssd.config.fd_config import image_size
 from vision.transforms.transforms import Pad
 
 # pad = Pad(image_size)
-
+from sort import Sort
+mot_tracker = Sort(40, 4)
 
 while True:
     ret, orig_image = cap.read()
@@ -95,6 +99,16 @@ while True:
     cv2.putText(orig_image, f'{1/interval:.2f} fps',
                 (0, 20), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (0, 0, 225), 2)
+
+    trackers = mot_tracker.update(boxes)
+
+    trackers = trackers.astype(np.int32)
+
+    for d in trackers:
+        cv2.rectangle(orig_image, (d[0], d[1]), (d[2], d[3]), (255, 255, 255))
+        cv2.putText(orig_image, '{}'.format(d[4]), (d[0], d[1]),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255))
+
     for box, label, prob in zip(boxes, labels, probs):
         # box = boxes[i, :]
         # label = f" {probs[i]:.2f}"
