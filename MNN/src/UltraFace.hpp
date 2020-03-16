@@ -1,27 +1,27 @@
-//
-//  UltraFace.hpp
-//  UltraFaceTest
-//
-//  Created by vealocia on 2019/10/17.
-//  Copyright © 2019 vealocia. All rights reserved.
-//
+//  Created by Linzaer on 2019/11/15.
+//  Copyright © 2019 Linzaer. All rights reserved.
 
 #ifndef UltraFace_hpp
 #define UltraFace_hpp
 
 #pragma once
 
-#include "gpu.h"
-#include "net.h"
+#include "Interpreter.hpp"
+
+#include "MNNDefine.h"
+#include "Tensor.hpp"
+#include "ImageProcess.hpp"
+#include <opencv2/opencv.hpp>
 #include <algorithm>
 #include <iostream>
 #include <string>
 #include <vector>
+#include <memory>
+#include <chrono>
 
 #define num_featuremap 4
 #define hard_nms 1
 #define blending_nms 2 /* mix nms was been proposaled in paper blaze face, aims to minimize the temporal jitter*/
-
 typedef struct FaceInfo {
     float x1;
     float y1;
@@ -29,25 +29,28 @@ typedef struct FaceInfo {
     float y2;
     float score;
 
-    float *landmarks;
 } FaceInfo;
 
 class UltraFace {
 public:
-    UltraFace(const std::string &bin_path, const std::string &param_path,
-              int input_width, int input_length, int num_thread_ = 4, float score_threshold_ = 0.7, float iou_threshold_ = 0.3, int topk_ = -1);
+    UltraFace(const std::string &mnn_path,
+              int input_width, int input_length, int num_thread_ = 4, float score_threshold_ = 0.7, float iou_threshold_ = 0.3,
+              int topk_ = -1);
 
     ~UltraFace();
 
-    int detect(ncnn::Mat &img, std::vector<FaceInfo> &face_list);
+    int detect(cv::Mat &img, std::vector<FaceInfo> &face_list);
 
 private:
-    void generateBBox(std::vector<FaceInfo> &bbox_collection, ncnn::Mat scores, ncnn::Mat boxes, float score_threshold, int num_anchors);
+    void generateBBox(std::vector<FaceInfo> &bbox_collection, MNN::Tensor *scores, MNN::Tensor *boxes);
 
     void nms(std::vector<FaceInfo> &input, std::vector<FaceInfo> &output, int type = blending_nms);
 
 private:
-    ncnn::Net ultraface;
+
+    std::shared_ptr<MNN::Interpreter> ultraface_interpreter;
+    MNN::Session *ultraface_session = nullptr;
+    MNN::Tensor *input_tensor = nullptr;
 
     int num_thread;
     int image_w;
@@ -57,7 +60,6 @@ private:
     int in_h;
     int num_anchors;
 
-    int topk;
     float score_threshold;
     float iou_threshold;
 

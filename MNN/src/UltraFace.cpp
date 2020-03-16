@@ -1,21 +1,16 @@
-//
-//  UltraFace.cpp
-//  UltraFaceTest
-//
-//  Created by vealocia on 2019/10/17.
-//  Copyright © 2019 vealocia. All rights reserved.
-//
+//  Created by Linzaer on 2019/11/15.
+//  Copyright © 2019 Linzaer. All rights reserved.
 
 #define clip(x, y) (x < 0 ? 0 : (x > y ? y : x))
 
 #include "UltraFace.hpp"
-#include "mat.h"
 
-UltraFace::UltraFace(const std::string &bin_path, const std::string &param_path,
+using namespace std;
+
+UltraFace::UltraFace(const std::string &mnn_path,
                      int input_width, int input_length, int num_thread_,
                      float score_threshold_, float iou_threshold_, int topk_) {
     num_thread = num_thread_;
-    topk = topk_;
     score_threshold = score_threshold_;
     iou_threshold = iou_threshold_;
     in_w = input_width;
@@ -33,7 +28,6 @@ UltraFace::UltraFace(const std::string &bin_path, const std::string &param_path,
     for (auto size : w_h_list) {
         shrinkage_size.push_back(strides);
     }
-
     /* generate prior anchors */
     for (int index = 0; index < num_featuremap; index++) {
         float scale_w = in_w / shrinkage_size[0][index];
@@ -51,59 +45,93 @@ UltraFace::UltraFace(const std::string &bin_path, const std::string &param_path,
             }
         }
     }
-    num_anchors = priors.size();
     /* generate prior anchors finished */
 
-    ultraface.load_param(param_path.data());
-    ultraface.load_model(bin_path.data());
+    num_anchors = priors.size();
+
+    ultraface_interpreter = std::shared_ptr<MNN::Interpreter>(MNN::Interpreter::createFromFile(mnn_path.c_str()));
+    MNN::ScheduleConfig config;
+    config.numThread = num_thread;
+    MNN::BackendConfig backendConfig;
+    backendConfig.precision = (MNN::BackendConfig::PrecisionMode) 2;
+    config.backendConfig = &backendConfig;
+
+    ultraface_session = ultraface_interpreter->createSession(config);
+
+    input_tensor = ultraface_interpreter->getSessionInput(ultraface_session, nullptr);
+
 }
 
-UltraFace::~UltraFace() { ultraface.clear(); }
+UltraFace::~UltraFace() {
+    ultraface_interpreter->releaseModel();
+    ultraface_interpreter->releaseSession(ultraface_session);
+}
 
-int UltraFace::detect(ncnn::Mat &img, std::vector<FaceInfo> &face_list) {
-    if (img.empty()) {
+int UltraFace::detect(cv::Mat &raw_image, std::vector<FaceInfo> &face_list) {
+    if (raw_image.empty()) {
         std::cout << "image is empty ,please check!" << std::endl;
         return -1;
     }
 
-    image_h = img.h;
-    image_w = img.w;
+    image_h = raw_image.rows;
+    image_w = raw_image.cols;
+    cv::Mat image;
+    cv::resize(raw_image, image, cv::Size(in_w, in_h));
 
-    ncnn::Mat in;
-    ncnn::resize_bilinear(img, in, in_w, in_h);
-    ncnn::Mat ncnn_img = in;
-    ncnn_img.substract_mean_normalize(mean_vals, norm_vals);
+    ultraface_interpreter->resizeTensor(input_tensor, {1, 3, in_h, in_w});
+    ultraface_interpreter->resizeSession(ultraface_session);
+    std::shared_ptr<MNN::CV::ImageProcess> pretreat(
+            MNN::CV::ImageProcess::create(MNN::CV::BGR, MNN::CV::RGB, mean_vals, 3,
+                                          norm_vals, 3));
+    pretreat->convert(image.data, in_w, in_h, image.step[0], input_tensor);
+
+    auto start = chrono::steady_clock::now();
+
+
+    // run network
+    ultraface_interpreter->runSession(ultraface_session);
+
+    // get output data
+
+    string scores = "scores";
+    string boxes = "boxes";
+    MNN::Tensor *tensor_scores = ultraface_interpreter->getSessionOutput(ultraface_session, scores.c_str());
+    MNN::Tensor *tensor_boxes = ultraface_interpreter->getSessionOutput(ultraface_session, boxes.c_str());
+
+    MNN::Tensor tensor_scores_host(tensor_scores, tensor_scores->getDimensionType());
+
+    tensor_scores->copyToHostTensor(&tensor_scores_host);
+
+    MNN::Tensor tensor_boxes_host(tensor_boxes, tensor_boxes->getDimensionType());
+
+    tensor_boxes->copyToHostTensor(&tensor_boxes_host);
 
     std::vector<FaceInfo> bbox_collection;
-    std::vector<FaceInfo> valid_input;
 
-    ncnn::Extractor ex = ultraface.create_extractor();
-    ex.set_num_threads(num_thread);
-    ex.input("input", ncnn_img);
 
-    ncnn::Mat scores;
-    ncnn::Mat boxes;
-    ex.extract("scores", scores);
-    ex.extract("boxes", boxes);
-    generateBBox(bbox_collection, scores, boxes, score_threshold, num_anchors);
+    auto end = chrono::steady_clock::now();
+    chrono::duration<double> elapsed = end - start;
+    cout << "inference time:" << elapsed.count() << " s" << endl;
+
+    generateBBox(bbox_collection, tensor_scores, tensor_boxes);
     nms(bbox_collection, face_list);
     return 0;
 }
 
-void UltraFace::generateBBox(std::vector<FaceInfo> &bbox_collection, ncnn::Mat scores, ncnn::Mat boxes, float score_threshold, int num_anchors) {
+void UltraFace::generateBBox(std::vector<FaceInfo> &bbox_collection, MNN::Tensor *scores, MNN::Tensor *boxes) {
     for (int i = 0; i < num_anchors; i++) {
-        if (scores.channel(0)[i * 2 + 1] > score_threshold) {
+        if (scores->host<float>()[i * 2 + 1] > score_threshold) {
             FaceInfo rects;
-            float x_center = boxes.channel(0)[i * 4] * center_variance * priors[i][2] + priors[i][0];
-            float y_center = boxes.channel(0)[i * 4 + 1] * center_variance * priors[i][3] + priors[i][1];
-            float w = exp(boxes.channel(0)[i * 4 + 2] * size_variance) * priors[i][2];
-            float h = exp(boxes.channel(0)[i * 4 + 3] * size_variance) * priors[i][3];
+            float x_center = boxes->host<float>()[i * 4] * center_variance * priors[i][2] + priors[i][0];
+            float y_center = boxes->host<float>()[i * 4 + 1] * center_variance * priors[i][3] + priors[i][1];
+            float w = exp(boxes->host<float>()[i * 4 + 2] * size_variance) * priors[i][2];
+            float h = exp(boxes->host<float>()[i * 4 + 3] * size_variance) * priors[i][3];
 
             rects.x1 = clip(x_center - w / 2.0, 1) * image_w;
             rects.y1 = clip(y_center - h / 2.0, 1) * image_h;
             rects.x2 = clip(x_center + w / 2.0, 1) * image_w;
             rects.y2 = clip(y_center + h / 2.0, 1) * image_h;
-            rects.score = clip(scores.channel(0)[i * 2 + 1], 1);
+            rects.score = clip(scores->host<float>()[i * 2 + 1], 1);
             bbox_collection.push_back(rects);
         }
     }
