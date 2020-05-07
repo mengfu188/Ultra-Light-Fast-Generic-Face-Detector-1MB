@@ -12,10 +12,17 @@ endif()
 
 project(Ultra-Light-Fast-Generic-Face-Detector-1MB)
 
-add_subdirectory(3rdparty/ncnn ncnn_build)
-include_directories(3rdparty/ncnn/src)
 
-find_package(OpenCV REQUIRED)
+find_package(OpenCV REQUIRED PATHS /home/cmf/dev/opencv-4.2.0/build_extra/install)
+
+message(${OpenCV_INCLUDE_DIRS})
+
+#add_subdirectory(3rdparty/ncnn ncnn_build)
+include_directories(${OpenCV_INCLUDE_DIRS}
+        /home/cmf/dev/ncnn-20200413/build_without_omp/install/include/ncnn)
+link_directories(${OpenCV_LIBS}
+        /home/cmf/dev/ncnn-20200413/build_without_omp/install/lib)
+
 
 add_executable(main src/main.cpp src/UltraFace.cpp)
 target_link_libraries(main ncnn ${OpenCV_LIBS})
