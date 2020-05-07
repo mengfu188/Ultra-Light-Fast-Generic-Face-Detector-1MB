@@ -279,6 +279,8 @@ int UltraFace::detect(ncnn::Mat &img, std::vector<FaceInfo> &face_list) {
     ex.extract("boxes", boxes);
     generateBBox(bbox_collection, scores, boxes, score_threshold, num_anchors);
     nms(bbox_collection, face_list);
+    std::sort(face_list.begin(), face_list.end(), cmp);
+
     return 0;
 }
 
@@ -296,6 +298,7 @@ void UltraFace::generateBBox(std::vector<FaceInfo> &bbox_collection, ncnn::Mat s
             rects.y1 = clip(y_center - h / 2.0, 1) * image_h;
             rects.x2 = clip(x_center + w / 2.0, 1) * image_w;
             rects.y2 = clip(y_center + h / 2.0, 1) * image_h;
+//            rects.area = (rects.y2-rects.y1) * (rects.x2 - rects.x1);
             rects.score = clip(scores.channel(0)[i * 2 + 1], 1);
             bbox_collection.push_back(rects);
         }
@@ -383,6 +386,11 @@ void UltraFace::nms(std::vector<FaceInfo> &input, std::vector<FaceInfo> &output,
             }
         }
     }
+}
+
+bool UltraFace::cmp(const FaceInfo &face1, const FaceInfo &face2) {
+    return (face1.y2-face1.y1) * (face1.x2 - face1.x1) > (face2.y2-face2.y1) * (face2.x2 - face2.x1);
+//        return face1.area > face2.area;
 }
 
 

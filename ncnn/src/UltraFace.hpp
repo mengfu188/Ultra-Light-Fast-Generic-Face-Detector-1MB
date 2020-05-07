@@ -39,12 +39,14 @@ typedef struct FaceInfo {
     float x2;
     float y2;
     float score;
+    float area;
 
     float *landmarks;
 } FaceInfo;
 
 class UltraFace {
 public:
+    UltraFace(){};
     UltraFace(const std::string &bin_path, const std::string &param_path,
               const std::string &input_size, int num_thread_ = 4, float score_threshold_ = 0.7,
               float iou_threshold_ = 0.3, int topk_ = -1, bool horizontal=true);
@@ -66,6 +68,8 @@ private:
     void generateBBox(std::vector<FaceInfo> &bbox_collection, ncnn::Mat scores, ncnn::Mat boxes, float score_threshold, int num_anchors);
 
     void nms(std::vector<FaceInfo> &input, std::vector<FaceInfo> &output, int type = blending_nms);
+
+    static bool cmp(const FaceInfo &face1, const FaceInfo &face2);
 
 private:
     ncnn::Net ultraface;

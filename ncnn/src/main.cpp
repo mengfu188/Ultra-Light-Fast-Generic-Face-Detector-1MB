@@ -8,6 +8,7 @@
 
 #include "UltraFace.hpp"
 #include <iostream>
+#include <string>
 #include <opencv2/opencv.hpp>
 #include <opencv2/video/video.hpp>
 
@@ -40,7 +41,10 @@ int main(int argc, char **argv) {
                 auto face = face_info[i];
                 cv::Point pt1(face.x1, face.y1);
                 cv::Point pt2(face.x2, face.y2);
+                cv::Point pt1a(face.x1, face.y1+20);
                 cv::rectangle(frame, pt1, pt2, cv::Scalar(0, 255, 0), 2);
+                cv::putText(frame, std::to_string(i), pt1, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 0, 0));
+                cv::putText(frame, std::to_string((face.y2-face.y1) * (face.x2 - face.x1)), pt1a, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 0, 0));
             }
 
             cv::imshow("UltraFace", frame);
@@ -69,11 +73,14 @@ int main(int argc, char **argv) {
                     auto face = face_info[i];
                     cv::Point pt1(face.x1, face.y1);
                     cv::Point pt2(face.x2, face.y2);
+                    cv::Point pt1a(face.x1, face.y1+20);
                     cv::rectangle(frame, pt1, pt2, cv::Scalar(0, 255, 0), 2);
+                    cv::putText(frame, std::to_string(i), pt1, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 0, 0));
+                    cv::putText(frame, std::to_string((face.y2-face.y1) * (face.x2 - face.x1)), pt1a, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 0, 0));
                 }
 
                 cv::imshow("UltraFace", frame);
-                cv::waitKey(1);
+                cv::waitKey();
 //                cv::imwrite("result.jpg", frame);
             }
 
