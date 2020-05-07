@@ -277,8 +277,12 @@ int UltraFace::detect(ncnn::Mat &img, std::vector<FaceInfo> &face_list) {
     ncnn::Mat boxes;
     ex.extract("scores", scores);
     ex.extract("boxes", boxes);
-    generateBBox(bbox_collection, scores, boxes, score_threshold, num_anchors);
-    nms(bbox_collection, face_list);
+//    generateBBox(bbox_collection, scores, boxes, score_threshold, num_anchors);
+//    nms(bbox_collection, face_list);
+
+    generateBBox(face_list, scores, boxes, score_threshold, num_anchors);
+    nms(face_list);
+
     std::sort(face_list.begin(), face_list.end(), cmp);
 
     return 0;
@@ -391,6 +395,32 @@ void UltraFace::nms(std::vector<FaceInfo> &input, std::vector<FaceInfo> &output,
 bool UltraFace::cmp(const FaceInfo &face1, const FaceInfo &face2) {
     return (face1.y2-face1.y1) * (face1.x2 - face1.x1) > (face2.y2-face2.y1) * (face2.x2 - face2.x1);
 //        return face1.area > face2.area;
+}
+
+void UltraFace::nms(std::vector<FaceInfo> &input_boxes) {
+    std::vector<float> vArea(input_boxes.size());
+    for (int i = 0; i < int(input_boxes.size()); ++i) {
+        vArea[i] = (input_boxes.at(i).x2 - input_boxes.at(i).x1 + 1)
+                   * (input_boxes.at(i).y2 - input_boxes.at(i).y1 + 1);
+    }
+    for (int i = 0; i < int(input_boxes.size()); ++i) {
+        for (int j = i + 1; j < int(input_boxes.size());) {
+            float xx1 = std::max(input_boxes[i].x1, input_boxes[j].x1);
+            float yy1 = std::max(input_boxes[i].y1, input_boxes[j].y1);
+            float xx2 = std::min(input_boxes[i].x2, input_boxes[j].x2);
+            float yy2 = std::min(input_boxes[i].y2, input_boxes[j].y2);
+            float w = std::max(float(0), xx2 - xx1 + 1);
+            float h = std::max(float(0), yy2 - yy1 + 1);
+            float inter = w * h;
+            float ovr = inter / (vArea[i] + vArea[j] - inter);
+            if (ovr >= 0.4) {
+                input_boxes.erase(input_boxes.begin() + j);
+                vArea.erase(vArea.begin() + j);
+            } else {
+                j++;
+            }
+        }
+    }
 }
 
 

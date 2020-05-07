@@ -69,6 +69,8 @@ private:
 
     void nms(std::vector<FaceInfo> &input, std::vector<FaceInfo> &output, int type = blending_nms);
 
+    void nms(std::vector<FaceInfo> &input);
+
     static bool cmp(const FaceInfo &face1, const FaceInfo &face2);
 
 private:
