@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
 
     std::string bin_path = argv[1];
     std::string param_path = argv[2];
-    UltraFace ultraface(bin_path, param_path, 96, 128, 1, 0.7); // config model input
+    UltraFace ultraface(bin_path, param_path, "0", 1, 0.7); // config model input
 
     std::string type = argv[3];
     if (type == "image") {

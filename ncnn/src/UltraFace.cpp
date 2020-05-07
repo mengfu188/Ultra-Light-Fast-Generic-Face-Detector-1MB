@@ -12,14 +12,15 @@
 #include "mat.h"
 
 UltraFace::UltraFace(const std::string &bin_path, const std::string &param_path,
-                     int input_width, int input_length, int num_thread_,
-                     float score_threshold_, float iou_threshold_, int topk_) {
+                     int input_width, int input_height, int num_thread_,
+                     float score_threshold_, float iou_threshold_, int topk_
+                     ) {
     num_thread = num_thread_;
     topk = topk_;
     score_threshold = score_threshold_;
     iou_threshold = iou_threshold_;
     in_w = input_width;
-    in_h = input_length;
+    in_h = input_height;
     w_h_list = {in_w, in_h};
 
     for (auto size : w_h_list) {
@@ -58,6 +59,197 @@ UltraFace::UltraFace(const std::string &bin_path, const std::string &param_path,
     ultraface.load_model(bin_path.data());
 }
 
+UltraFace::UltraFace(const std::string &bin_path, const std::string &param_path, const std::string &input_size,
+                     int num_thread_, float score_threshold_, float iou_threshold_, int topk_, bool horizontal) {
+    num_thread = num_thread_;
+    topk = topk_;
+    score_threshold = score_threshold_;
+    iou_threshold = iou_threshold_;
+    int input_width, input_height;
+    if (input_size == FACE_TINY) {
+        input_width = 128;
+        input_height = 96;
+    } else if (input_size == FACE_SMALL) {
+        input_width = 160;
+        input_height = 120;
+    } else if (input_size == FACE_NORM) {
+        input_width = 320;
+        input_height = 240;
+    } else if (input_size == FACE_BIG) {
+        input_width = 480;
+        input_height = 320;
+    } else if (input_size == FACE_LARGE) {
+        input_width = 640;
+        input_height = 480;
+    } else if (input_size == FACE_HUGE) {
+        input_width = 1280;
+        input_height = 960;
+    }
+
+
+    if (horizontal == FACE_HORIZONTAL) {
+        in_w = input_width;
+        in_h = input_height;
+    } else {
+        in_w = input_height;
+        in_h = input_width;
+    }
+    w_h_list = {in_w, in_h};
+
+    for (auto size : w_h_list) {
+        std::vector<float> fm_item;
+        for (float stride : strides) {
+            fm_item.push_back(ceil(size / stride));
+        }
+        featuremap_size.push_back(fm_item);
+    }
+
+    for (auto size : w_h_list) {
+        shrinkage_size.push_back(strides);
+    }
+
+    /* generate prior anchors */
+    for (int index = 0; index < num_featuremap; index++) {
+        float scale_w = in_w / shrinkage_size[0][index];
+        float scale_h = in_h / shrinkage_size[1][index];
+        for (int j = 0; j < featuremap_size[1][index]; j++) {
+            for (int i = 0; i < featuremap_size[0][index]; i++) {
+                float x_center = (i + 0.5) / scale_w;
+                float y_center = (j + 0.5) / scale_h;
+
+                for (float k : min_boxes[index]) {
+                    float w = k / in_w;
+                    float h = k / in_h;
+                    priors.push_back({clip(x_center, 1), clip(y_center, 1), clip(w, 1), clip(h, 1)});
+                }
+            }
+        }
+    }
+    num_anchors = priors.size();
+    /* generate prior anchors finished */
+
+    ultraface.load_param(param_path.data());
+    ultraface.load_model(bin_path.data());
+}
+
+UltraFace::UltraFace(const ncnn::Net &net, const std::string &input_size, int num_thread_, float score_threshold_,
+                     float iou_threshold_, int topk_, bool horizontal) {
+    num_thread = num_thread_;
+    topk = topk_;
+    score_threshold = score_threshold_;
+    iou_threshold = iou_threshold_;
+    int input_width, input_height;
+    if (input_size == FACE_TINY) {
+        input_width = 128;
+        input_height = 96;
+    } else if (input_size == FACE_SMALL) {
+        input_width = 160;
+        input_height = 120;
+    } else if (input_size == FACE_NORM) {
+        input_width = 320;
+        input_height = 240;
+    } else if (input_size == FACE_BIG) {
+        input_width = 480;
+        input_height = 320;
+    } else if (input_size == FACE_LARGE) {
+        input_width = 640;
+        input_height = 480;
+    } else if (input_size == FACE_HUGE) {
+        input_width = 1280;
+        input_height = 960;
+    }
+
+
+    if (horizontal == FACE_HORIZONTAL) {
+        in_w = input_width;
+        in_h = input_height;
+    } else {
+        in_w = input_height;
+        in_h = input_width;
+    }
+    w_h_list = {in_w, in_h};
+
+    for (auto size : w_h_list) {
+        std::vector<float> fm_item;
+        for (float stride : strides) {
+            fm_item.push_back(ceil(size / stride));
+        }
+        featuremap_size.push_back(fm_item);
+    }
+
+    for (auto size : w_h_list) {
+        shrinkage_size.push_back(strides);
+    }
+
+    /* generate prior anchors */
+    for (int index = 0; index < num_featuremap; index++) {
+        float scale_w = in_w / shrinkage_size[0][index];
+        float scale_h = in_h / shrinkage_size[1][index];
+        for (int j = 0; j < featuremap_size[1][index]; j++) {
+            for (int i = 0; i < featuremap_size[0][index]; i++) {
+                float x_center = (i + 0.5) / scale_w;
+                float y_center = (j + 0.5) / scale_h;
+
+                for (float k : min_boxes[index]) {
+                    float w = k / in_w;
+                    float h = k / in_h;
+                    priors.push_back({clip(x_center, 1), clip(y_center, 1), clip(w, 1), clip(h, 1)});
+                }
+            }
+        }
+    }
+    num_anchors = priors.size();
+    /* generate prior anchors finished */
+
+    ultraface = net;
+}
+
+UltraFace::UltraFace(const ncnn::Net &net, int input_width, int input_height, int num_thread_, float score_threshold_,
+                     float iou_threshold_, int topk_) {
+    num_thread = num_thread_;
+    topk = topk_;
+    score_threshold = score_threshold_;
+    iou_threshold = iou_threshold_;
+    in_w = input_width;
+    in_h = input_height;
+    w_h_list = {in_w, in_h};
+
+    for (auto size : w_h_list) {
+        std::vector<float> fm_item;
+        for (float stride : strides) {
+            fm_item.push_back(ceil(size / stride));
+        }
+        featuremap_size.push_back(fm_item);
+    }
+
+    for (auto size : w_h_list) {
+        shrinkage_size.push_back(strides);
+    }
+
+    /* generate prior anchors */
+    for (int index = 0; index < num_featuremap; index++) {
+        float scale_w = in_w / shrinkage_size[0][index];
+        float scale_h = in_h / shrinkage_size[1][index];
+        for (int j = 0; j < featuremap_size[1][index]; j++) {
+            for (int i = 0; i < featuremap_size[0][index]; i++) {
+                float x_center = (i + 0.5) / scale_w;
+                float y_center = (j + 0.5) / scale_h;
+
+                for (float k : min_boxes[index]) {
+                    float w = k / in_w;
+                    float h = k / in_h;
+                    priors.push_back({clip(x_center, 1), clip(y_center, 1), clip(w, 1), clip(h, 1)});
+                }
+            }
+        }
+    }
+    num_anchors = priors.size();
+    /* generate prior anchors finished */
+
+    ultraface = net;
+}
+
+
 UltraFace::~UltraFace() { ultraface.clear(); }
 
 int UltraFace::detect(ncnn::Mat &img, std::vector<FaceInfo> &face_list) {
@@ -90,7 +282,8 @@ int UltraFace::detect(ncnn::Mat &img, std::vector<FaceInfo> &face_list) {
     return 0;
 }
 
-void UltraFace::generateBBox(std::vector<FaceInfo> &bbox_collection, ncnn::Mat scores, ncnn::Mat boxes, float score_threshold, int num_anchors) {
+void UltraFace::generateBBox(std::vector<FaceInfo> &bbox_collection, ncnn::Mat scores, ncnn::Mat boxes,
+                             float score_threshold, int num_anchors) {
     for (int i = 0; i < num_anchors; i++) {
         if (scores.channel(0)[i * 2 + 1] > score_threshold) {
             FaceInfo rects;
@@ -191,3 +384,6 @@ void UltraFace::nms(std::vector<FaceInfo> &input, std::vector<FaceInfo> &output,
         }
     }
 }
+
+
+

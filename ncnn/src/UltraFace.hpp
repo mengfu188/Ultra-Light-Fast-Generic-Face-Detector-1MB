@@ -22,6 +22,17 @@
 #define hard_nms 1
 #define blending_nms 2 /* mix nms was been proposaled in paper blaze face, aims to minimize the temporal jitter*/
 
+#define FACE_TINY "0"
+#define FACE_SMALL "1"
+#define FACE_NORM "2"
+#define FACE_BIG "3"
+#define FACE_LARGE "4"
+#define FACE_HUGE "5"
+
+#define FACE_HORIZONTAL true // width > height
+#define FACE_VERTICAL false // width < height
+
+
 typedef struct FaceInfo {
     float x1;
     float y1;
@@ -35,7 +46,17 @@ typedef struct FaceInfo {
 class UltraFace {
 public:
     UltraFace(const std::string &bin_path, const std::string &param_path,
-              int input_width, int input_length, int num_thread_ = 4, float score_threshold_ = 0.7, float iou_threshold_ = 0.3, int topk_ = -1);
+              const std::string &input_size, int num_thread_ = 4, float score_threshold_ = 0.7,
+              float iou_threshold_ = 0.3, int topk_ = -1, bool horizontal=true);
+    UltraFace(const std::string &bin_path, const std::string &param_path,
+              int input_width, int input_height, int num_thread_ = 4, float score_threshold_ = 0.7,
+              float iou_threshold_ = 0.3, int topk_ = -1);
+    UltraFace(const ncnn::Net &net,
+              const std::string &input_size, int num_thread_ = 4, float score_threshold_ = 0.7,
+              float iou_threshold_ = 0.3, int topk_ = -1, bool horizontal=true);
+    UltraFace(const ncnn::Net &net,
+              int input_width, int input_height, int num_thread_ = 4, float score_threshold_ = 0.7,
+              float iou_threshold_ = 0.3, int topk_ = -1);
 
     ~UltraFace();
 
