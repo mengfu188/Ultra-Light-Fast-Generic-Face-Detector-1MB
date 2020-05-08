@@ -23,7 +23,7 @@ from vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
 parser = argparse.ArgumentParser(
     description='train With Pytorch')
 
-parser.add_argument("--dataset_type", default="voc", type=str, nargs='+',
+parser.add_argument("--dataset_type", default=["voc"], type=str, nargs='+',
                     help='Specify dataset type. Currently support voc.')
 parser.add_argument('--oid_filter_size', default=10, type=int)
 parser.add_argument('--brain_filter_size', default=10, type=int)
@@ -309,14 +309,14 @@ if __name__ == '__main__':
         logging.info("Freeze all the layers except prediction heads.")
     else:
         params = [
-            {'params': net.base_net.parameters(), 'lr': base_net_lr},
+            {'params': net.module.base_net.parameters(), 'lr': base_net_lr},
             {'params': itertools.chain(
-                net.source_layer_add_ons.parameters(),
-                net.extras.parameters()
+                net.module.source_layer_add_ons.parameters(),
+                net.module.extras.parameters()
             ), 'lr': extra_layers_lr},
             {'params': itertools.chain(
-                net.regression_headers.parameters(),
-                net.classification_headers.parameters()
+                net.module.regression_headers.parameters(),
+                net.module.classification_headers.parameters()
             )}
         ]
 
@@ -386,5 +386,5 @@ if __name__ == '__main__':
                 f"Validation Classification Loss: {val_classification_loss:.4f}"
             )
             model_path = os.path.join(args.checkpoint_folder, f"{args.net}-Epoch-{epoch}-Loss-{val_loss}.pth")
-            net.save(model_path)
+            net.module.save(model_path)
             logging.info(f"Saved model {model_path}")
