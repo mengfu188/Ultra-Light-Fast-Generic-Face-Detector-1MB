@@ -62,3 +62,13 @@ def create_mb_tiny_fd_predictor(net, candidate_size=200, nms_method=None, sigma=
                           sigma=sigma,
                           device=device)
     return predictor
+
+
+
+
+
+
+
+if __name__ == '__main__':
+    base_net = Mb_Tiny(2)
+    base_net_model = base_net.model

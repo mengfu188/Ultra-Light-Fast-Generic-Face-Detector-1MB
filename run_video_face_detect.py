@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument('--net_type', default="RFB", type=str,
                     help='The network architecture ,optional: RFB (higher precision) or slim (faster)')
-parser.add_argument('--input_size', default=640, type=int,
+parser.add_argument('--input_size', default=480, type=int,
                     help='define network input size,default optional value 128/160/320/480/640/1280')
 parser.add_argument('--threshold', default=0.7, type=float,
                     help='score threshold')
@@ -23,14 +23,13 @@ parser.add_argument('--path', default="imgs", type=str,
                     help='imgs dir')
 parser.add_argument('--test_device', default="cuda:0", type=str,
                     help='cuda:0 or cpu')
-parser.add_argument('--video_path', default="/home/cmf/tayg_duoren_part1.mp4", type=str,
+parser.add_argument('--video_path', default="/home/linzai/Videos/video/16_1.MP4", type=str,
                     help='path of video')
 parser.add_argument('--model_path', default='models/pretrained/version-RFB-320.pth')
 args = parser.parse_args()
 
 input_img_size = args.input_size
-define_img_size(
-    input_img_size)  # must put define_img_size() before 'import create_mb_tiny_fd, create_mb_tiny_fd_predictor'
+define_img_size(input_img_size)  # must put define_img_size() before 'import create_mb_tiny_fd, create_mb_tiny_fd_predictor'
 
 from vision.ssd.mb_tiny_fd import create_mb_tiny_fd, create_mb_tiny_fd_predictor
 from vision.ssd.mb_tiny_RFB_fd import create_Mb_Tiny_RFB_fd, create_Mb_Tiny_RFB_fd_predictor

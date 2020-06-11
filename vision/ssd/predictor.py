@@ -35,6 +35,7 @@ class Predictor:
         with torch.no_grad():
             for i in range(1):
                 self.timer.start()
+                # 得到预测边界框（conor form）
                 scores, boxes = self.net.forward(images)
                 print("Inference time: ", self.timer.end())
         boxes = boxes[0]
@@ -47,13 +48,17 @@ class Predictor:
         picked_box_probs = []
         picked_labels = []
         for class_index in range(1, scores.size(1)):
+            # 筛选需要的边界框，1. 边界框的threshold 2.nms， nms的threshold
             probs = scores[:, class_index]
+            # 筛选出置信度大于阈值的边界框
             mask = probs > prob_threshold
             probs = probs[mask]
             if probs.size(0) == 0:
                 continue
             subset_boxes = boxes[mask, :]
+            # 将预测边界框和边界框的概率合并在一起
             box_probs = torch.cat([subset_boxes, probs.reshape(-1, 1)], dim=1)
+            # 使用nms进行筛选需要的边界框
             box_probs = box_utils.nms(box_probs, self.nms_method,
                                       score_threshold=prob_threshold,
                                       iou_threshold=self.iou_threshold,
