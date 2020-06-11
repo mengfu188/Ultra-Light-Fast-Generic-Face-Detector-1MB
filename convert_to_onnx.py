@@ -12,21 +12,23 @@ define_img_size(input_img_size)
 from vision.ssd.mb_tiny_RFB_fd import create_Mb_Tiny_RFB_fd
 from vision.ssd.mb_tiny_fd import create_mb_tiny_fd
 
-# net_type = "slim"  # inference faster,lower precision
-net_type = "RFB"  # inference lower,higher precision
+net_type = "slim"  # inference faster,lower precision
+# net_type = "RFB"  # inference lower,higher precision
 
 label_path = "models/voc-model-labels.txt"
 class_names = [name.strip() for name in open(label_path).readlines()]
-num_classes = len(class_names)
+num_classes = 2
 
 if net_type == 'slim':
     model_path = "models/pretrained/version-slim-320.pth"
+    model_path = "/checkpoints/face_detect/train-version-slim-320/slim-Epoch-199-Loss-3.048709324554161.pth"
     # model_path = "models/pretrained/version-slim-640.pth"
-    net = create_mb_tiny_fd(len(class_names), is_test=True)
+    net = create_mb_tiny_fd(num_classes, is_test=True)
 elif net_type == 'RFB':
     model_path = "models/pretrained/version-RFB-320.pth"
+    model_path = "/checkpoints/face_detect/train-version-RFB-320/RFB-Epoch-199-Loss-2.966393968794081.pth"
     # model_path = "models/pretrained/version-RFB-640.pth"
-    net = create_Mb_Tiny_RFB_fd(len(class_names), is_test=True)
+    net = create_Mb_Tiny_RFB_fd(num_classes, is_test=True)
 
 else:
     print("unsupport network type.")
@@ -36,7 +38,7 @@ net.eval()
 net.to("cuda")
 
 model_name = model_path.split("/")[-1].split(".")[0]
-model_path = f"models/onnx/{model_name}.onnx"
+model_path = f"models/onnx/{model_name}_without_postprocess.onnx"
 
 dummy_input = torch.randn(1, 3, 240, 320).to("cuda")
 # dummy_input = torch.randn(1, 3, 480, 640).to("cuda") #if input size is 640*480
